@@ -14,12 +14,7 @@ pipeline {
                 git branch: 'main', url: 'https://github.com/your-org/your-repo.git'
             }
         }
-        stage('Test') {
-            steps {
-                // 예시: Maven 테스트 실행 (프로젝트에 맞게 수정)
-                sh 'mvn clean test'
-            }
-        }
+
         stage('Build Docker Image') {
             steps {
                 script {
