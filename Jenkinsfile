@@ -1,54 +1,126 @@
-pipeline {
-    agent any
-
-    environment {
-        // Docker Registry 정보
-        DOCKER_REGISTRY = "your-registry.com"
-        IMAGE_NAME      = "your-image-name"
+pipeline{
+    agent{
+        label "jenkins-agent"
     }
+    tools {
+        jdk 'Java17'
+        maven 'Maven3'
+    }
+    environment {
+        APP_NAME = "complete-prodcution-e2e-pipeline"
+        RELEASE = "1.0.0"
+        DOCKER_USER = "dmancloud"
+        DOCKER_PASS = 'dockerhub'
+        IMAGE_NAME = "${DOCKER_USER}" + "/" + "${APP_NAME}"
+        IMAGE_TAG = "${RELEASE}-${BUILD_NUMBER}"
+        JENKINS_API_TOKEN = credentials("JENKINS_API_TOKEN")
 
-    stages {
-        stage('Checkout') {
+    }
+    stages{
+        stage("Cleanup Workspace"){
             steps {
-                // Git 플러그인을 이용한 저장소 체크아웃
-                git branch: 'main', url: 'https://github.com/your-org/your-repo.git'
+                cleanWs()
             }
+
+        }
+    
+        stage("Checkout from SCM"){
+            steps {
+                git branch: 'main', credentialsId: 'github', url: 'https://github.com/dmancloud/complete-prodcution-e2e-pipeline'
+            }
+
         }
 
-        stage('Build Docker Image') {
+        stage("Build Application"){
             steps {
-                script {
-                    // Docker Pipeline Plugin의 docker.build 사용 (빌드 시, Jenkins 노드에 Docker 설치 필수)
-                    dockerImage = docker.build("${DOCKER_REGISTRY}/${IMAGE_NAME}:${env.BUILD_ID}")
-                }
+                sh "mvn clean package"
             }
+
         }
-        stage('Push Docker Image') {
+
+        stage("Test Application"){
+            steps {
+                sh "mvn test"
+            }
+
+        }
+        
+        stage("Sonarqube Analysis") {
             steps {
                 script {
-                    // docker-credentials-id: Jenkins에 미리 등록된 Docker Registry 인증정보 ID
-                    docker.withRegistry("https://${DOCKER_REGISTRY}", 'docker-credentials-id') {
-                        dockerImage.push("${env.BUILD_ID}")
-                        dockerImage.push("latest")
+                    withSonarQubeEnv(credentialsId: 'jenkins-sonarqube-token') {
+                        sh "mvn sonar:sonar"
                     }
                 }
             }
+
         }
-        stage('Deploy to Kubernetes') {
+
+        stage("Quality Gate") {
             steps {
-                // Kubernetes CLI Plugin을 사용하면 withKubeConfig 스텝을 활용하여 kubeconfig와 연동한 상태로 kubectl 명령 실행 가능
-                withKubeConfig([credentialsId: 'kube-credentials-id', serverUrl: 'https://your-k8s-api-server']) {
-                    // Deployment의 컨테이너 이미지를 업데이트한 후 롤아웃 상태 확인
-                    sh "kubectl set image deployment/your-deployment your-container=${DOCKER_REGISTRY}/${IMAGE_NAME}:${env.BUILD_ID} --record"
-                    sh "kubectl rollout status deployment/your-deployment"
+                script {
+                    waitForQualityGate abortPipeline: false, credentialsId: 'jenkins-sonarqube-token'
+                }
+            }
+
+        }
+
+        stage("Build & Push Docker Image") {
+            steps {
+                script {
+                    docker.withRegistry('',DOCKER_PASS) {
+                        docker_image = docker.build "${IMAGE_NAME}"
+                    }
+
+                    docker.withRegistry('',DOCKER_PASS) {
+                        docker_image.push("${IMAGE_TAG}")
+                        docker_image.push('latest')
+                    }
+                }
+            }
+
+        }
+
+        stage("Trivy Scan") {
+            steps {
+                script {
+		   sh ('docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image dmancloud/complete-prodcution-e2e-pipeline:1.0.0-22 --no-progress --scanners vuln  --exit-code 0 --severity HIGH,CRITICAL --format table')
+                }
+            }
+
+        }
+
+        stage ('Cleanup Artifacts') {
+            steps {
+                script {
+                    sh "docker rmi ${IMAGE_NAME}:${IMAGE_TAG}"
+                    sh "docker rmi ${IMAGE_NAME}:latest"
                 }
             }
         }
-    }
-    // 파이프라인 종료
-    post {
-        always {
-            echo "CI/CD Pipeline Completed"
+
+
+        stage("Trigger CD Pipeline") {
+            steps {
+                script {
+                    sh "curl -v -k --user admin:${JENKINS_API_TOKEN} -X POST -H 'cache-control: no-cache' -H 'content-type: application/x-www-form-urlencoded' --data 'IMAGE_TAG=${IMAGE_TAG}' 'https://jenkins.dev.dman.cloud/job/gitops-complete-pipeline/buildWithParameters?token=gitops-token'"
+                }
+            }
+
         }
+
+    }
+
+    post {
+        failure {
+            emailext body: '''${SCRIPT, template="groovy-html.template"}''', 
+                    subject: "${env.JOB_NAME} - Build # ${env.BUILD_NUMBER} - Failed", 
+                    mimeType: 'text/html',to: "dmistry@yourhostdirect.com"
+            }
+         success {
+               emailext body: '''${SCRIPT, template="groovy-html.template"}''', 
+                    subject: "${env.JOB_NAME} - Build # ${env.BUILD_NUMBER} - Successful", 
+                    mimeType: 'text/html',to: "dmistry@yourhostdirect.com"
+          }      
     }
 }
