@@ -3,6 +3,7 @@ kind: Deployment
 metadata:
   name: minisized-web
 spec:
+  replicas: 3
   selector:
     matchLabels:
       app: minisized-web
@@ -19,4 +20,4 @@ spec:
             memory: "128Mi"
             cpu: "500m"
         ports:
-        - containerPort: 80
+        - containerPort: 8080
