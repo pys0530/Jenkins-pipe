@@ -48,7 +48,7 @@ pipeline{
         stage("Trigger CD Pipeline"){
             steps {
                 script {
-                    sh "Curl -v -k --user admin:${JENKINS_API_TOKEN} -X POST -H 'cache-control: no-cache' -H 'content-type: application/x-www-form-urlencoded' --data 'IMAGE_TAG=${IMAGE_TAG}' 'https://10.203.254.254:8080/job/CD-pipeline/buildWithParameter?token=gitops-token'"
+                    sh "Curl -v -k --user admin:${JENKINS_API_TOKEN} -X POST -H 'cache-control: no-cache' -H 'content-type: application/x-www-form-urlencoded' --data 'IMAGE_TAG=${IMAGE_TAG}' 'https://10.203.200.201:8080/job/CD-pipeline/buildWithParameter?token=gitops-token'"
                 }
             }
         }
