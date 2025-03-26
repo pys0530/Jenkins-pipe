@@ -41,9 +41,20 @@ pipeline{
                         docker_image.push('latest')
                     }
                 }
-                
             }
         }
+
+         stage('Docker Run') {
+            steps {
+                echo 'Pull Docker Image & Docker Image Run'
+                sshagent (credentials: ['AWS-EC2']) {
+                    sh "ssh -o StrictHostKeyChecking=no ec2-user@cloudeng.store 'docker-compose -f /home/ec2-user/docker-compose.yml down'"
+                    sh "ssh -o StrictHostKeyChecking=no ec2-user@cloudeng.store 'docker image prune -af'"
+                    sh "ssh -o StrictHostKeyChecking=no ec2-user@cloudeng.store 'docker-compose -f /home/ec2-user/docker-compose.yml up --build -d'"
+                }
+            }
+        }
+
     }
 
     post {
