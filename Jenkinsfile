@@ -9,7 +9,7 @@ pipeline{
 
     environment {
         APP_NAME = "minisized-web"
-        RELEASE = "0.11"
+        RELEASE = "0.12"
         DOCKER_USER = "pys0530"
         DOCKER_PASS = "dockerhub"
         IMAGE_NAME = "${DOCKER_USER}" + "/" + "${APP_NAME}" 
