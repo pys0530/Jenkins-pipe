@@ -1,0 +1,13 @@
+services:
+  app:
+    image: pys0530/minisized-web:latest
+    container_name: miniweb
+    restart: always
+    ports:
+      - "80:80"
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
