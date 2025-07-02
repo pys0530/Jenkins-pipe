@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minisized-web2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minisized-web2
+  template:
+    metadata:
+      labels:
+        app: minisized-web2
+    spec:
+      containers:
+      - name: minisized-web2
+        #image: pys0530/minisized-web:latest
+        image: nginx:latest
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 80
