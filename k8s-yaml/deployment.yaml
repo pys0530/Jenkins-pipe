@@ -14,7 +14,8 @@ spec:
     spec:
       containers:
       - name: minisized-web
-        image: pys0530/minisized-web:latest
+        #image: pys0530/minisized-web:latest
+        image: nginx:latest
         resources:
           limits:
             memory: "128Mi"
